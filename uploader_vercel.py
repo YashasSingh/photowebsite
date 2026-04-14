@@ -253,6 +253,8 @@ def show_status(reason=""):
 
 def main():
     """Main uploader loop"""
+    global FLASK_URL, UPLOAD_INTERVAL, CHECK_INTERVAL
+    
     parser = argparse.ArgumentParser(
         description='Upload screenshots via REST API to live photo stream'
     )
@@ -276,7 +278,6 @@ def main():
     
     args = parser.parse_args()
     
-    global FLASK_URL
     FLASK_URL = args.url.rstrip('/')
     UPLOAD_INTERVAL = args.interval
     CHECK_INTERVAL = args.check_interval

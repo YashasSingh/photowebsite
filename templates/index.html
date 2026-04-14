@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Photo Stream</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .info-section {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .info-section h2 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .info-section p {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .photo-container {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .photo-container img {
+            max-width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .placeholder-text {
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .placeholder-text p {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .metadata {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+
+        .connection-status.connected {
+            border-left: 4px solid #4ade80;
+        }
+
+        .connection-status.disconnected {
+            border-left: 4px solid #ef4444;
+        }
+
+        .viewer-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .photo-container {
+                min-height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📸 Live Photo Stream</h1>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Channel Active</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="info-section">
+                <h2>✨ Welcome to the Photo Stream</h2>
+                <p>Your browser has opened a live channel. While you're viewing this page, a Python script can detect the active connection and upload photos that will appear here in real-time. Keep this page open to receive updates!</p>
+            </div>
+
+            <div class="photo-container" id="photoContainer">
+                <div class="placeholder-text">
+                    <p>👀 Waiting for photos...</p>
+                    <p style="font-size: 0.9em; color: #d1d5db;">Photos will appear here when uploaded</p>
+                </div>
+            </div>
+
+            <div class="metadata" id="metadata"></div>
+
+            <div class="viewer-count" id="viewerCount">
+                👥 You are the only viewer
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-status connected" id="connectionStatus">
+        <span>✓ Connected</span>
+    </div>
+
+    <script>
+        const socket = io();
+        const photoContainer = document.getElementById('photoContainer');
+        const metadata = document.getElementById('metadata');
+        const viewerCount = document.getElementById('viewerCount');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // Show connection status
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            connectionStatus.textContent = '✓ Connected';
+            connectionStatus.classList.add('connected');
+            connectionStatus.classList.remove('disconnected');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            connectionStatus.textContent = '✗ Disconnected';
+            connectionStatus.classList.remove('connected');
+            connectionStatus.classList.add('disconnected');
+        });
+
+        // Update viewer count
+        socket.on('viewer_count', (data) => {
+            const count = data.count;
+            if (count === 1) {
+                viewerCount.textContent = '👥 You are the only viewer';
+            } else {
+                viewerCount.textContent = `👥 ${count} viewers online`;
+            }
+            console.log(`Viewers: ${count}`);
+        });
+
+        // Receive new photos
+        socket.on('new_photo', (data) => {
+            console.log('New photo received!', data);
+            
+            // Clear placeholder
+            photoContainer.innerHTML = '';
+
+            // Create image element
+            const img = document.createElement('img');
+            img.src = data.photo_url;
+            img.alt = 'Stream photo';
+            
+            img.onerror = () => {
+                console.error('Failed to load image:', data.photo_url);
+            };
+
+            photoContainer.appendChild(img);
+
+            // Update metadata
+            const timestamp = new Date(data.timestamp).toLocaleString();
+            metadata.innerHTML = `<strong>Last updated:</strong> ${timestamp}`;
+        });
+
+        // Keep connection alive with periodic pings
+        setInterval(() => {
+            socket.emit('ping');
+        }, 30000); // Ping every 30 seconds
+
+        // Warn user before leaving
+        window.addEventListener('beforeunload', (e) => {
+            e.preventDefault();
+            e.returnValue = 'The photo stream will stop if you leave. Are you sure?';
+        });
+    </script>
+</body>
+</html>

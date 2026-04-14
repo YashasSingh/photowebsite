@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Photo Stream - Vercel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.inactive {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .info-section {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .info-section h2 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .info-section p {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .photo-container {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            position: relative;
+        }
+
+        .photo-container img {
+            max-width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .placeholder-text {
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .placeholder-text p {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .metadata {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+            z-index: 100;
+        }
+
+        .connection-status.connected {
+            border-left: 4px solid #4ade80;
+        }
+
+        .connection-status.disconnected {
+            border-left: 4px solid #ef4444;
+        }
+
+        .viewer-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .poll-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.8em;
+            color: #9ca3af;
+            z-index: 100;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .photo-container {
+                min-height: 250px;
+            }
+
+            .connection-status {
+                bottom: auto;
+                top: 10px;
+                right: 10px;
+            }
+
+            .poll-indicator {
+                left: 10px;
+                bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📸 Live Photo Stream</h1>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="info-section">
+                <h2>✨ Welcome to the Photo Stream</h2>
+                <p>Your browser has opened a live channel. While you're viewing this page, a Python script can detect your presence and upload photos that will appear here in real-time. Keep this page open to receive updates!</p>
+            </div>
+
+            <div class="photo-container" id="photoContainer">
+                <div class="placeholder-text">
+                    <p>👀 Waiting for photos...</p>
+                    <p style="font-size: 0.9em; color: #d1d5db;">Photos will appear here when uploaded</p>
+                </div>
+            </div>
+
+            <div class="metadata" id="metadata"></div>
+
+            <div class="viewer-count" id="viewerCount">
+                👥 Connecting...
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-status connected" id="connectionStatus">
+        <span id="connectionText">✓ Connected</span>
+    </div>
+
+    <div class="poll-indicator" id="pollIndicator">
+        ⏱️ Polling...
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = window.location.origin;
+        const POLL_INTERVAL = 2000; // Poll every 2 seconds
+        const CLIENT_ID = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        let lastPhotoTimestamp = null;
+        let isConnected = false;
+        let pollCount = 0;
+
+        const elements = {
+            photoContainer: document.getElementById('photoContainer'),
+            metadata: document.getElementById('metadata'),
+            viewerCount: document.getElementById('viewerCount'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            connectionText: document.getElementById('connectionText'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            pollIndicator: document.getElementById('pollIndicator')
+        };
+
+        // Initialize viewer connection
+        async function connectViewer() {
+            try {
+                const response = await fetch(`${API_BASE}/api/viewer/connect?client_id=${CLIENT_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    console.log('✓ Connected to stream');
+                    startPolling();
+                }
+            } catch (error) {
+                console.error('Connection failed:', error);
+                updateConnectionStatus(false);
+                setTimeout(connectViewer, 3000);
+            }
+        }
+
+        // Disconnect viewer
+        async function disconnectViewer() {
+            try {
+                await fetch(`${API_BASE}/api/viewer/disconnect?client_id=${CLIENT_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                isConnected = false;
+            } catch (error) {
+                console.error('Disconnect error:', error);
+            }
+        }
+
+        // Poll for new photos and status
+        async function pollPhotos() {
+            try {
+                const url = lastPhotoTimestamp 
+                    ? `${API_BASE}/api/subscribe?last_timestamp=${encodeURIComponent(lastPhotoTimestamp)}`
+                    : `${API_BASE}/api/subscribe`;
+
+                const response = await fetch(url);
+
+                if (!response.ok) throw new Error('Poll failed');
+
+                const data = await response.json();
+
+                // Update viewer count
+                updateViewerCount(data.viewers);
+
+                // Update status dot
+                updateStatusDot(data.viewers > 0);
+
+                // Handle new photo
+                if (data.photo) {
+                    displayPhoto(data.photo);
+                    lastPhotoTimestamp = data.photo.timestamp;
+                }
+
+                // Update poll indicator
+                pollCount++;
+                updatePollIndicator();
+
+            } catch (error) {
+                console.error('Poll error:', error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Display photo
+        function displayPhoto(photoData) {
+            console.log('📸 New photo received!', photoData);
+
+            elements.photoContainer.innerHTML = '';
+
+            const img = document.createElement('img');
+            img.src = photoData.photo_url;
+            img.alt = 'Stream photo';
+
+            img.onerror = () => {
+                console.error('Failed to load image');
+                elements.photoContainer.innerHTML = '<div class="placeholder-text"><p>⚠️ Failed to load image</p></div>';
+            };
+
+            elements.photoContainer.appendChild(img);
+
+            // Update metadata
+            const timestamp = new Date(photoData.timestamp).toLocaleString();
+            elements.metadata.innerHTML = `<strong>Last updated:</strong> ${timestamp}`;
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            isConnected = connected;
+            elements.connectionStatus.classList.toggle('connected', connected);
+            elements.connectionStatus.classList.toggle('disconnected', !connected);
+            elements.connectionText.textContent = connected ? '✓ Connected' : '✗ Disconnected';
+        }
+
+        // Update viewer count display
+        function updateViewerCount(count) {
+            if (count === 1) {
+                elements.viewerCount.textContent = '👥 You are the only viewer';
+            } else {
+                elements.viewerCount.textContent = `👥 ${count} viewers online`;
+            }
+        }
+
+        // Update status indicator
+        function updateStatusDot(active) {
+            elements.statusDot.classList.toggle('inactive', !active);
+            elements.statusText.textContent = active ? 'Channel Active' : 'No Viewers';
+        }
+
+        // Update poll indicator
+        function updatePollIndicator() {
+            const seconds = ((pollCount * POLL_INTERVAL) / 1000).toFixed(0);
+            elements.pollIndicator.textContent = `⏱️ Polling... (${seconds}s)`;
+        }
+
+        // Start polling loop
+        function startPolling() {
+            // Poll immediately
+            pollPhotos();
+
+            // Then poll at intervals
+            setInterval(pollPhotos, POLL_INTERVAL);
+        }
+
+        // Handle page visibility
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('Page hidden');
+                disconnectViewer();
+            } else {
+                console.log('Page visible');
+                connectViewer();
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            disconnectViewer();
+        });
+
+        // Warn before leaving
+        window.addEventListener('beforeunload', (e) => {
+            if (isConnected) {
+                e.preventDefault();
+                e.returnValue = 'The photo stream will stop if you leave. Are you sure?';
+            }
+        });
+
+        // Initialize
+        console.log('🚀 Initializing Live Photo Stream');
+        console.log('Client ID:', CLIENT_ID);
+        connectViewer();
+    </script>
+</body>
+</html>

@@ -35,10 +35,8 @@ except ImportError:
     SCREENSHOT_AVAILABLE = False
     print("⚠️  Warning: Pillow not installed. Using dummy images.")
 
-load_dotenv()
-
 # Configuration
-FLASK_URL = os.getenv('FLASK_URL', 'http://localhost:5000').rstrip('/')
+FLASK_URL = 'https://photowebsite-dusky.vercel.app'
 UPLOAD_INTERVAL = 5  # seconds between uploads when channel is active
 CHECK_INTERVAL = 2   # seconds between checking if anyone is viewing
 
@@ -259,11 +257,6 @@ def main():
         description='Upload screenshots via REST API to live photo stream'
     )
     parser.add_argument(
-        '--url',
-        default=FLASK_URL,
-        help='Flask/Vercel server URL'
-    )
-    parser.add_argument(
         '--interval',
         type=int,
         default=UPLOAD_INTERVAL,
@@ -278,7 +271,6 @@ def main():
     
     args = parser.parse_args()
     
-    FLASK_URL = args.url.rstrip('/')
     UPLOAD_INTERVAL = args.interval
     CHECK_INTERVAL = args.check_interval
     

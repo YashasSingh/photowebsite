@@ -31,6 +31,20 @@ def status():
     }
 
 # SocketIO Events
+@app.route('/api/upload-photo', methods=['POST'])
+def api_upload_photo():
+    data = request.get_json()
+    if not data or 'photo_url' not in data:
+        return {'status': 'error', 'message': 'Missing photo_url'}, 400
+    
+    # Broadcast to all connected Socket.IO clients
+    socketio.emit('new_photo', {
+        'photo_url': data['photo_url'],
+        'timestamp': datetime.now().isoformat()
+    }, room=WATCH_ROOM)
+    
+    return {'status': 'broadcasted', 'viewers': len(connected_clients)}
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""

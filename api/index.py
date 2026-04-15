@@ -26,7 +26,7 @@ def index():
     """Serve the main page"""
     return render_template('vercel.html')
 
-@app.route('/status', methods=['GET'])
+@app.route('/api/status', methods=['GET'])
 def api_status():
     """Check if anyone is watching"""
     # Get client IP as unique identifier
@@ -41,7 +41,7 @@ def api_status():
         'timestamp': datetime.utcnow().isoformat() + 'Z'
     })
 
-@app.route('/photo', methods=['GET'])
+@app.route('/api/photo', methods=['GET'])
 def api_get_photo():
     """Get the latest photo"""
     if state['last_photo']:
@@ -57,7 +57,7 @@ def api_get_photo():
         'message': 'No photos yet'
     })
 
-@app.route('/subscribe', methods=['GET'])
+@app.route('/api/subscribe', methods=['GET'])
 def api_subscribe():
     """
     Polling endpoint - client polls this to get new photos
@@ -80,7 +80,7 @@ def api_subscribe():
     
     return jsonify(response)
 
-@app.route('/viewer/connect', methods=['POST'])
+@app.route('/api/viewer/connect', methods=['POST'])
 def api_viewer_connect():
     """Client connects to view stream"""
     client_id = request.args.get('client_id', request.remote_addr)
@@ -96,7 +96,7 @@ def api_viewer_connect():
         'timestamp': datetime.utcnow().isoformat() + 'Z'
     })
 
-@app.route('/viewer/disconnect', methods=['POST'])
+@app.route('/api/viewer/disconnect', methods=['POST'])
 def api_viewer_disconnect():
     """Client disconnects from stream"""
     client_id = request.args.get('client_id', request.remote_addr)
@@ -111,11 +111,10 @@ def api_viewer_disconnect():
         'timestamp': datetime.utcnow().isoformat() + 'Z'
     })
 
-@app.route('/upload-photo', methods=['POST'])
+@app.route('/api/upload-photo', methods=['POST'])
 def api_upload_photo():
     """Upload a new photo"""
     data = request.get_json()
-    
     if not data or 'photo_url' not in data:
         return jsonify({'error': 'Missing photo_url', 'success': False}), 400
     
@@ -134,7 +133,7 @@ def api_upload_photo():
         'timestamp': state['last_updated']
     })
 
-@app.route('/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
 def api_health():
     """Health check endpoint"""
     return jsonify({
